@@ -18,7 +18,11 @@ export interface _SERVICE {
   'getOrderbook' : ActorMethod<[], Result_2>,
   'getSpread' : ActorMethod<[], Result_1>,
   'getTotalVolume' : ActorMethod<[], Result_1>,
-  'updateOrderbook' : ActorMethod<[], Result>,
+  'healthCheck' : ActorMethod<[], boolean>,
+  'updateOrderbook' : ActorMethod<
+    [Array<[string, string]>, Array<[string, string]>],
+    Result
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

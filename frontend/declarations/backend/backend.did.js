@@ -15,7 +15,15 @@ export const idlFactory = ({ IDL }) => {
     'getOrderbook' : IDL.Func([], [Result_2], ['query']),
     'getSpread' : IDL.Func([], [Result_1], ['query']),
     'getTotalVolume' : IDL.Func([], [Result_1], ['query']),
-    'updateOrderbook' : IDL.Func([], [Result], []),
+    'healthCheck' : IDL.Func([], [IDL.Bool], ['query']),
+    'updateOrderbook' : IDL.Func(
+        [
+          IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+          IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+        ],
+        [Result],
+        [],
+      ),
   });
 };
 export const init = ({ IDL }) => { return []; };

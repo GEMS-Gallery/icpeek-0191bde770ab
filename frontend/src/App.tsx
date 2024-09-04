@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { backend } from 'declarations/backend';
-import { Container, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress } from '@mui/material';
+import { Container, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Button, Snackbar } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import Alert from '@mui/material/Alert';
 
 type OrderbookEntry = {
   price: number;
@@ -13,6 +14,9 @@ type Orderbook = {
   asks: OrderbookEntry[];
 };
 
+const BINANCE_API_URL = 'https://api.binance.com/api/v3';
+const SYMBOL = 'ICPUSDT';
+
 const App: React.FC = () => {
   const [orderbook, setOrderbook] = useState<Orderbook | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
@@ -20,16 +24,37 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [spread, setSpread] = useState<number | null>(null);
   const [totalVolume, setTotalVolume] = useState<number | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
 
-  const fetchOrderbook = async () => {
+  const fetchOrderbookFromBinance = async (limit = 10) => {
+    const url = `${BINANCE_API_URL}/depth?symbol=${SYMBOL}&limit=${limit}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return {
+      bids: data.bids.map(([price, quantity]: [string, string]) => [price, quantity]),
+      asks: data.asks.map(([price, quantity]: [string, string]) => [price, quantity])
+    };
+  };
+
+  const fetchOrderbook = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const isHealthy = await backend.healthCheck();
+      if (!isHealthy) {
+        throw new Error("Backend is not healthy");
+      }
+
+      const binanceData = await fetchOrderbookFromBinance();
+      await backend.updateOrderbook(binanceData.bids, binanceData.asks);
       const result = await backend.getOrderbook();
       if ('ok' in result) {
         setOrderbook(result.ok);
       } else {
-        setError(result.err);
+        throw new Error(result.err);
       }
 
       const updateTime = await backend.getLastUpdateTime();
@@ -45,17 +70,25 @@ const App: React.FC = () => {
         setTotalVolume(volumeResult.ok);
       }
     } catch (err) {
-      setError('Failed to fetch orderbook');
+      setError('Failed to fetch orderbook: ' + (err instanceof Error ? err.message : String(err)));
+      setSnackbarOpen(true);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOrderbook();
     const interval = setInterval(fetchOrderbook, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchOrderbook]);
+
+  const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
 
   const renderOrderbookTable = (entries: OrderbookEntry[], type: 'bids' | 'asks') => (
     <TableContainer component={Paper}>
@@ -70,7 +103,7 @@ const App: React.FC = () => {
           {entries.map((entry, index) => (
             <TableRow key={index} sx={{ backgroundColor: type === 'bids' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)' }}>
               <TableCell component="th" scope="row">
-                {entry.price.toFixed(2)}
+                {entry.price.toFixed(4)}
               </TableCell>
               <TableCell align="right">{entry.quantity.toFixed(4)}</TableCell>
             </TableRow>
@@ -87,14 +120,23 @@ const App: React.FC = () => {
           ICP/USDT Orderbook
         </Typography>
         {loading && <CircularProgress />}
-        {error && <Typography color="error">{error}</Typography>}
+        {error && (
+          <Box sx={{ mb: 2 }}>
+            <Typography color="error">{error}</Typography>
+            <Button variant="contained" onClick={fetchOrderbook} startIcon={<RefreshIcon />}>
+              Retry
+            </Button>
+          </Box>
+        )}
         {orderbook && (
           <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="subtitle1">
                 Last updated: {new Date(lastUpdateTime || 0).toLocaleString()}
               </Typography>
-              <RefreshIcon onClick={fetchOrderbook} sx={{ cursor: 'pointer' }} />
+              <Button variant="outlined" onClick={fetchOrderbook} startIcon={<RefreshIcon />}>
+                Refresh
+              </Button>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Box sx={{ width: '48%' }}>
@@ -117,6 +159,11 @@ const App: React.FC = () => {
           </>
         )}
       </Box>
+      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
+        <Alert onClose={handleSnackbarClose} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
