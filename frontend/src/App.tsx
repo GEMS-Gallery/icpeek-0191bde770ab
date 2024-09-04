@@ -14,9 +14,6 @@ type Orderbook = {
   asks: OrderbookEntry[];
 };
 
-const BINANCE_API_URL = 'https://api.binance.com/api/v3';
-const SYMBOL = 'ICPUSDT';
-
 const App: React.FC = () => {
   const [orderbook, setOrderbook] = useState<Orderbook | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
@@ -25,19 +22,6 @@ const App: React.FC = () => {
   const [spread, setSpread] = useState<number | null>(null);
   const [totalVolume, setTotalVolume] = useState<number | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
-
-  const fetchOrderbookFromBinance = async (limit = 10) => {
-    const url = `${BINANCE_API_URL}/depth?symbol=${SYMBOL}&limit=${limit}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return {
-      bids: data.bids.map(([price, quantity]: [string, string]) => [price, quantity]),
-      asks: data.asks.map(([price, quantity]: [string, string]) => [price, quantity])
-    };
-  };
 
   const fetchOrderbook = useCallback(async () => {
     setLoading(true);
@@ -48,8 +32,7 @@ const App: React.FC = () => {
         throw new Error("Backend is not healthy");
       }
 
-      const binanceData = await fetchOrderbookFromBinance();
-      await backend.updateOrderbook(binanceData.bids, binanceData.asks);
+      await backend.updateOrderbook();
       const result = await backend.getOrderbook();
       if ('ok' in result) {
         setOrderbook(result.ok);

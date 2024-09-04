@@ -29,11 +29,5 @@ service : {
   getSpread: () -> (Result_1) query;
   getTotalVolume: () -> (Result_1) query;
   healthCheck: () -> (bool) query;
-  updateOrderbook: (vec record {
-                          text;
-                          text;
-                        }, vec record {
-                                 text;
-                                 text;
-                               }) -> (Result);
+  updateOrderbook: () -> (Result);
 }

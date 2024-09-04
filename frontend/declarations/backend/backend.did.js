@@ -16,14 +16,7 @@ export const idlFactory = ({ IDL }) => {
     'getSpread' : IDL.Func([], [Result_1], ['query']),
     'getTotalVolume' : IDL.Func([], [Result_1], ['query']),
     'healthCheck' : IDL.Func([], [IDL.Bool], ['query']),
-    'updateOrderbook' : IDL.Func(
-        [
-          IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
-          IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
-        ],
-        [Result],
-        [],
-      ),
+    'updateOrderbook' : IDL.Func([], [Result], []),
   });
 };
 export const init = ({ IDL }) => { return []; };
