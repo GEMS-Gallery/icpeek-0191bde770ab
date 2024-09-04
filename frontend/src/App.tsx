@@ -1,0 +1,124 @@
+import React, { useState, useEffect } from 'react';
+import { backend } from 'declarations/backend';
+import { Container, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+
+type OrderbookEntry = {
+  price: number;
+  quantity: number;
+};
+
+type Orderbook = {
+  bids: OrderbookEntry[];
+  asks: OrderbookEntry[];
+};
+
+const App: React.FC = () => {
+  const [orderbook, setOrderbook] = useState<Orderbook | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [spread, setSpread] = useState<number | null>(null);
+  const [totalVolume, setTotalVolume] = useState<number | null>(null);
+
+  const fetchOrderbook = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await backend.getOrderbook();
+      if ('ok' in result) {
+        setOrderbook(result.ok);
+      } else {
+        setError(result.err);
+      }
+
+      const updateTime = await backend.getLastUpdateTime();
+      setLastUpdateTime(Number(updateTime));
+
+      const spreadResult = await backend.getSpread();
+      if ('ok' in spreadResult) {
+        setSpread(spreadResult.ok);
+      }
+
+      const volumeResult = await backend.getTotalVolume();
+      if ('ok' in volumeResult) {
+        setTotalVolume(volumeResult.ok);
+      }
+    } catch (err) {
+      setError('Failed to fetch orderbook');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrderbook();
+    const interval = setInterval(fetchOrderbook, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const renderOrderbookTable = (entries: OrderbookEntry[], type: 'bids' | 'asks') => (
+    <TableContainer component={Paper}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Price</TableCell>
+            <TableCell align="right">Quantity</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {entries.map((entry, index) => (
+            <TableRow key={index} sx={{ backgroundColor: type === 'bids' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)' }}>
+              <TableCell component="th" scope="row">
+                {entry.price.toFixed(2)}
+              </TableCell>
+              <TableCell align="right">{entry.quantity.toFixed(4)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+
+  return (
+    <Container maxWidth="lg">
+      <Box sx={{ my: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          ICP/USDT Orderbook
+        </Typography>
+        {loading && <CircularProgress />}
+        {error && <Typography color="error">{error}</Typography>}
+        {orderbook && (
+          <>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="subtitle1">
+                Last updated: {new Date(lastUpdateTime || 0).toLocaleString()}
+              </Typography>
+              <RefreshIcon onClick={fetchOrderbook} sx={{ cursor: 'pointer' }} />
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ width: '48%' }}>
+                <Typography variant="h6">Bids</Typography>
+                {renderOrderbookTable(orderbook.bids, 'bids')}
+              </Box>
+              <Box sx={{ width: '48%' }}>
+                <Typography variant="h6">Asks</Typography>
+                {renderOrderbookTable(orderbook.asks, 'asks')}
+              </Box>
+            </Box>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1">
+                Spread: {spread !== null ? spread.toFixed(4) : 'N/A'}
+              </Typography>
+              <Typography variant="subtitle1">
+                Total Volume: {totalVolume !== null ? totalVolume.toFixed(4) : 'N/A'}
+              </Typography>
+            </Box>
+          </>
+        )}
+      </Box>
+    </Container>
+  );
+};
+
+export default App;

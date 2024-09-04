@@ -1,0 +1,32 @@
+type Result_2 = 
+ variant {
+   err: text;
+   ok: Orderbook;
+ };
+type Result_1 = 
+ variant {
+   err: text;
+   ok: float64;
+ };
+type Result = 
+ variant {
+   err: text;
+   ok;
+ };
+type OrderbookEntry = 
+ record {
+   price: float64;
+   quantity: float64;
+ };
+type Orderbook = 
+ record {
+   asks: vec OrderbookEntry;
+   bids: vec OrderbookEntry;
+ };
+service : {
+  getLastUpdateTime: () -> (int) query;
+  getOrderbook: () -> (Result_2) query;
+  getSpread: () -> (Result_1) query;
+  getTotalVolume: () -> (Result_1) query;
+  updateOrderbook: () -> (Result);
+}
